@@ -1,4 +1,4 @@
-package gitTest
+package test
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
 	"github.com/stepan41k/gitTest"
 	"github.com/stretchr/testify/require"
 )

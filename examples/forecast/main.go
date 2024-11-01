@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+
 	"github.com/stepan41k/gitTest"
 )
 
@@ -23,8 +24,8 @@ func main() {
 	// call the forecast method to get current weather
 	temperature, err := client.Forecast(context.Background(),
 		gitTest.ForecastParams{
-			Latitude:  float64(latitude),
-			Longitude: float64(longitude),
+			Latitude:  float32(latitude),
+			Longitude: float32(longitude),
 			Timezone:  timezone,
 		})
 	if err != nil {
