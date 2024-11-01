@@ -1,4 +1,4 @@
-package git_test
+package gitTest
 
 import (
 	"net/http"

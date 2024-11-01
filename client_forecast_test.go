@@ -1,4 +1,4 @@
-package git_test
+package gitTest
 
 import (
 	"context"
@@ -7,8 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/stepan41k/git-test"
+	"github.com/stepan41k/gitTest"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,9 +40,9 @@ func TestForecastOk(t *testing.T) {
 	}))
 	defer svr.Close()
 
-	cl := openmeteo.New(svr.URL)
+	cl := gitTest.New(svr.URL)
 
-	resp, err := cl.Forecast(context.Background(), openmeteo.ForecastParams{
+	resp, err := cl.Forecast(context.Background(), gitTest.ForecastParams{
 		Latitude:  0,
 		Longitude: 0,
 		Timezone:  "UTC",
@@ -67,9 +66,9 @@ func TestForecastError(t *testing.T) {
 	}))
 	defer svr.Close()
 
-	cl := openmeteo.New(svr.URL)
+	cl := gitTest.New(svr.URL)
 
-	_, err := cl.Forecast(context.Background(), openmeteo.ForecastParams{})
+	_, err := cl.Forecast(context.Background(), gitTest.ForecastParams{})
 	if err == nil {
 		t.Errorf("error was expected, got nil")
 		return
@@ -84,9 +83,9 @@ func TestForecastJsonUnmarshalFailed(t *testing.T) {
 	}))
 	defer svr.Close()
 
-	cl := openmeteo.New(svr.URL)
+	cl := gitTest.New(svr.URL)
 
-	_, err := cl.Forecast(context.Background(), openmeteo.ForecastParams{
+	_, err := cl.Forecast(context.Background(), gitTest.ForecastParams{
 		Latitude:  0,
 		Longitude: 0,
 		Timezone:  "UTC",
@@ -106,9 +105,9 @@ func TestForecastServerFailed(t *testing.T) {
 	}))
 	defer svr.Close()
 
-	cl := openmeteo.New(svr.URL)
+	cl := gitTest.New(svr.URL)
 
-	_, err := cl.Forecast(context.Background(), openmeteo.ForecastParams{
+	_, err := cl.Forecast(context.Background(), gitTest.ForecastParams{
 		Latitude:  0,
 		Longitude: 0,
 		Timezone:  "UTC",
@@ -130,9 +129,9 @@ func TestForecastServerPanic(t *testing.T) {
 	}))
 	defer svr.Close()
 
-	cl := openmeteo.New(svr.URL)
+	cl := gitTest.New(svr.URL)
 
-	_, err := cl.Forecast(context.Background(), openmeteo.ForecastParams{
+	_, err := cl.Forecast(context.Background(), gitTest.ForecastParams{
 		Latitude:  0,
 		Longitude: 0,
 		Timezone:  "UTC",

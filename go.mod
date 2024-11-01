@@ -1,8 +1,9 @@
-module github.com/stepan41k/git-test
+module github.com/stepan41k/gitTest
+
 
 go 1.22.0
 
-require github.com/stretchr/testify v1.8.4
+require "github.com/stretchr/testify/require" v1.8.4
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

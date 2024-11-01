@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/stepan41k/git-test"
+	"github.com/stepan41k/gitTest"
 )
 
 func main() {
@@ -18,13 +18,13 @@ func main() {
 	flag.Parse()
 
 	// create new openmeteo client instance
-	client := git_test.New("")
+	client := gitTest.New("")
 
 	// call the forecast method to get current weather
 	temperature, err := client.Forecast(context.Background(),
-		git_test.ForecastParams{
-			Latitude:  float32,
-			Longitude: float32,
+		gitTest.ForecastParams{
+			Latitude:  float64(latitude),
+			Longitude: float64(longitude),
 			Timezone:  timezone,
 		})
 	if err != nil {
