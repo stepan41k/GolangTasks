@@ -1,11 +1,8 @@
 package main
 
 import (
-<<<<<<< HEAD
-	"fmt"
-=======
 	// "fmt"
->>>>>>> d4945cb (change files)
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -50,7 +47,6 @@ func CachedLongCalculation(n int) int {
 	return found
 }
 
-<<<<<<< HEAD
 func main() {
 	nums := []int{5, 10, 22}
 
@@ -62,16 +58,3 @@ func main() {
 		}()
 	}
 }
-=======
-// func main() {
-// 	nums := []int{5, 10, 22}
-
-
-// 	for _, n := range nums {
-// 		go func() {
-// 			val := CachedLongCalculation(n)
-// 			fmt.Println(val)
-// 		}()
-// 	}
-// }
->>>>>>> d4945cb (change files)

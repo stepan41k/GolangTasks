@@ -39,7 +39,6 @@ func getDiscountWithTimeout(ctx context.Context) (float64, error) {
 	}
 }
 
-<<<<<<< HEAD
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
 	defer cancel()
@@ -52,17 +51,3 @@ func main() {
 
 	fmt.Println(res)
 }
-=======
-// func main() {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 3 * time.Second)
-// 	defer cancel()
-	
-// 	res, err := getDiscountWithTimeout(ctx)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-
-// 	fmt.Println(res)
-// }
->>>>>>> d4945cb (change files)

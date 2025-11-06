@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 package concurrency
-=======
-package main
->>>>>>> d4945cb (change files)
 
 import (
 	"context"
@@ -36,7 +32,6 @@ func SimulateRequest(ctx context.Context) (int64, error) {
 	}
 }
 
-<<<<<<< HEAD
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -48,16 +43,3 @@ func main() {
 	fmt.Println(val)
 
 }
-=======
-// func main() {
-// 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-// 	defer cancel()
-
-// 	val, err := SimulateRequest(ctx)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	fmt.Println(val)
-
-// }
->>>>>>> d4945cb (change files)

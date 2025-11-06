@@ -3,11 +3,7 @@ package main
 import (
 	"fmt"
 	"math/rand"
-<<<<<<< HEAD
 	"sync"
-=======
-	// "sync"
->>>>>>> d4945cb (change files)
 	"time"
 )
 
@@ -29,7 +25,6 @@ func (p *ParkingLot) Park(carID int64) {
 	<-p.slots
 }
 
-<<<<<<< HEAD
 func main() {
 	parking := NewParkingLot(3)
 
@@ -49,24 +44,3 @@ func main() {
 
 	fmt.Println()
 }
-=======
-// func main() {
-// 	parking := NewParkingLot(3)
-
-// 	var wg sync.WaitGroup
-
-// 	carIDs := []int64{1, 2, 3, 4 , 5, 6}
-
-// 	for _, carID := range carIDs {
-// 		wg.Add(1)
-// 		go func(id int64) {
-// 			defer wg.Done()
-// 			parking.Park(id)
-// 		}(carID)
-// 	}
-
-// 	wg.Wait()
-
-// 	fmt.Println()
-// }
->>>>>>> d4945cb (change files)

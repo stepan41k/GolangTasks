@@ -1,1 +1,1 @@
-# Hello here some text
+# Algorithms, data structures and patherns of Golang development

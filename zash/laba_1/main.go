@@ -313,7 +313,7 @@ func main() {
 	printResults(rusResultA)
 
 	// --- Анализ латинского текста ---
-	fmt.Println("\n=========================================================\n")
+	fmt.Printf("\n=========================================================\n")
 	latinTextBytes, err := os.ReadFile("./cmd/latin_text.txt")
 	if err != nil {
 		log.Fatalf("Ошибка чтения файла latin_text.txt: %v", err)
@@ -323,7 +323,7 @@ func main() {
 	printResults(latResult)
 
 	// --- Совместный анализ двух русских текстов ---
-	fmt.Println("\n=========================================================\n")
+	fmt.Printf("\n=========================================================\n")
 	russianTextBBytes, err := os.ReadFile("./cmd/russian_text_B.txt")
 	if err != nil {
 		// Программа завершится, если второго файла нет, но не упадет.
