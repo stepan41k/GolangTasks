@@ -1,346 +1,495 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"math"
 	"os"
-	"sort"
+	"path/filepath"
 	"strings"
+	"unicode"
 )
 
-// Alphabet представляет алфавит для анализа.
-type Alphabet struct {
-	Name    string
+
+var russianAlphabet = []rune{
+	'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з',
+	'и', 'й', 'к', 'л', 'м', 'н', 'о', 'п',
+	'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч',
+	'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я',
+}
+
+var latinAlphabet = []rune{
+	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+	'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+	'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
+	'y', 'z',
+}
+
+type Alph struct {
+	Name   string
 	Letters []rune
-	Map     map[rune]int
+	Index  map[rune]int
 }
 
-// NewAlphabet создает и инициализирует новый алфавит.
-func NewAlphabet(letters []rune, name string) *Alphabet {
-	m := make(map[rune]int)
+func newAlph(name string, letters []rune) Alph {
+	idx := make(map[rune]int, len(letters))
 	for i, r := range letters {
-		m[r] = i
+		idx[r] = i
 	}
-	return &Alphabet{
-		Name:    name,
-		Letters: letters,
-		Map:     m,
-	}
+	return Alph{Name: name, Letters: letters, Index: idx}
 }
 
-// AnalysisResult хранит полные результаты анализа текста.
-type AnalysisResult struct {
-	TextName                 string
-	Alphabet                 *Alphabet
-	TotalChars               int
-	TotalBigrams             int
-	CharCounts               []int
-	BigramCounts             [][]int
-	CharProbabilities        []float64
-	BigramProbabilities      [][]float64
-	ConditionalProbabilities [][]float64
-	EntropyH_A               float64
-	MarkovEntropyH_A_A       float64
+// Читает файл UTF-8 в одну строку (все символы).
+func readFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	sb := strings.Builder{}
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		sb.WriteString(sc.Text())
+		sb.WriteRune('\n')
+	}
+	if err := sc.Err(); err != nil {
+		return "", err
+	}
+	return sb.String(), nil
 }
 
-var (
-	RussianAlphabet = NewAlphabet([]rune("абвгдежзийклмнопрстуфхцчшщъыьэюя"), "Русский")
-	LatinAlphabet   = NewAlphabet([]rune("abcdefghijklmnopqrstuvwxyz"), "Латиница")
-)
-
-// normalizeText очищает и нормализует текст в соответствии с заданным алфавитом.
-func normalizeText(text string, alphabet *Alphabet) string {
-	var result strings.Builder
-	lowerText := strings.ToLower(text)
-	for _, r := range lowerText {
-		if _, ok := alphabet.Map[r]; ok {
-			result.WriteRune(r)
-		}
+// Нормализация символа: lower, и для кириллицы можно преобразовать 'ё'->'е' если нужно.
+// Возвращает rune и флаг — принадлежит ли символ данному алфавиту и индекс в алфавите.
+func filterChar(r rune, alph Alph) (int, bool) {
+	r = unicode.ToLower(r)
+	// Приведение ё к е (если нужно). В задании 32 буквы без ё — я исключаю 'ё'.
+	if r == 'ё' {
+		// можно заменить на 'е' или пропустить; здесь пропускаем (не считаем 'ё').
+		return -1, false
 	}
-	fmt.Println(result.String())
-	return result.String()
+	idx, ok := alph.Index[r]
+	return idx, ok
 }
 
-// analyzeText выполняет полный частотный анализ текста.
-func analyzeText(text, textName string, alphabet *Alphabet) *AnalysisResult {
-	normalizedText := normalizeText(text, alphabet)
-	n := len(alphabet.Letters)
-	runes := []rune(normalizedText)
-	textLen := len(runes)
-
-	res := &AnalysisResult{
-		TextName:                 textName,
-		Alphabet:                 alphabet,
-		TotalChars:               textLen,
-		CharCounts:               make([]int, n),
-		BigramCounts:             make([][]int, n),
-		CharProbabilities:        make([]float64, n),
-		BigramProbabilities:      make([][]float64, n),
-		ConditionalProbabilities: make([][]float64, n),
-	}
-
+// Подсчёт частот одиночных символов и биграмм для текста и указанного алфавита.
+func analyzeTextForAlphabet(text string, alph Alph) (counts []int, bigrams [][]int, total int) {
+	n := len(alph.Letters)
+	counts = make([]int, n)
+	bigrams = make([][]int, n)
 	for i := 0; i < n; i++ {
-		res.BigramCounts[i] = make([]int, n)
-		res.BigramProbabilities[i] = make([]float64, n)
-		res.ConditionalProbabilities[i] = make([]float64, n)
+		bigrams[i] = make([]int, n)
 	}
 
-	// 1. Подсчет частот одиночных символов
-	for _, r := range runes {
-		if idx, ok := alphabet.Map[r]; ok {
-			res.CharCounts[idx]++
-		}
-	}
-
-	// 2. Подсчет частот биграмм
-	// КОРРЕКТНЫЙ ЦИКЛ: используется `i < textLen-1`
-	if textLen > 1 {
-		for i := 0; i < textLen-1; i++ {
-			idx1, ok1 := alphabet.Map[runes[i]]
-			idx2, ok2 := alphabet.Map[runes[i+1]]
-			if ok1 && ok2 {
-				res.BigramCounts[idx1][idx2]++
-				res.TotalBigrams++
+	var prevIdx = -1
+	for _, r := range text {
+		// игнорируем цифры, пунктуацию, пробелы
+		// считаем только символы из алфавита
+		if idx, ok := filterChar(r, alph); ok {
+			counts[idx]++
+			total++
+			if prevIdx != -1 {
+				bigrams[prevIdx][idx]++
 			}
+			prevIdx = idx
+		} else {
+			// разрыв: не учитываем биграммы через не-алфавитные символы
+			prevIdx = -1
 		}
 	}
-
-	// 3. Расчет вероятностей
-	if res.TotalChars > 0 {
-		for i := 0; i < n; i++ {
-			res.CharProbabilities[i] = float64(res.CharCounts[i]) / float64(res.TotalChars)
-		}
-	}
-
-	if res.TotalBigrams > 0 {
-		for i := 0; i < n; i++ {
-			for j := 0; j < n; j++ {
-				res.BigramProbabilities[i][j] = float64(res.BigramCounts[i][j]) / float64(res.TotalBigrams)
-				if res.CharCounts[i] > 0 {
-					res.ConditionalProbabilities[i][j] = float64(res.BigramCounts[i][j]) / float64(res.CharCounts[i])
-				}
-			}
-		}
-	}
-
-	// 4. Расчет энтропии
-	res.EntropyH_A = calculateEntropyH_A(res.CharProbabilities)
-	res.MarkovEntropyH_A_A = calculateMarkovEntropyH_A_A(res.CharProbabilities, res.ConditionalProbabilities)
-
-	return res
+	return
 }
 
-// calculateEntropyH_A вычисляет энтропию источника H(A).
-func calculateEntropyH_A(probs []float64) float64 {
-	var entropy float64
+// Вычисление вероятностей из счетчиков
+func toProbabilitiesInt(counts []int, total int) []float64 {
+	if total == 0 {
+		out := make([]float64, len(counts))
+		return out
+	}
+	out := make([]float64, len(counts))
+	for i, c := range counts {
+		out[i] = float64(c) / float64(total)
+	}
+	return out
+}
+
+func toProbMatrixInt(mat [][]int, total int) [][]float64 {
+	n := len(mat)
+	out := make([][]float64, n)
+	for i := 0; i < n; i++ {
+		out[i] = make([]float64, n)
+		for j := 0; j < n; j++ {
+			if total > 0 {
+				out[i][j] = float64(mat[i][j]) / float64(total)
+			} else {
+				out[i][j] = 0.0
+			}
+		}
+	}
+	return out
+}
+
+// Энтропия: H = - sum p log2 p (игнорируем p==0)
+func entropyFromProbs(probs []float64) float64 {
+	h := 0.0
 	for _, p := range probs {
 		if p > 0 {
-			entropy -= p * math.Log2(p)
+			h -= p * math.Log2(p)
 		}
 	}
-	return entropy
+	return h
 }
 
-// calculateMarkovEntropyH_A_A вычисляет марковскую энтропию H(A|A).
-func calculateMarkovEntropyH_A_A(charProbs []float64, condProbs [][]float64) float64 {
-	var entropy float64
-	n := len(charProbs)
-	for i := 0; i < n; i++ {
-		if charProbs[i] > 0 {
-			var innerSum float64
-			for j := 0; j < n; j++ {
-				if condProbs[i][j] > 0 {
-					innerSum -= condProbs[i][j] * math.Log2(condProbs[i][j])
-				}
+// Энтропия для матрицы совместных вероятностей (двумерный)
+func entropyFromJoint(joint [][]float64) float64 {
+	h := 0.0
+	for i := 0; i < len(joint); i++ {
+		for j := 0; j < len(joint[i]); j++ {
+			p := joint[i][j]
+			if p > 0 {
+				h -= p * math.Log2(p)
 			}
-			entropy += charProbs[i] * innerSum
 		}
 	}
-	return entropy
+	return h
 }
 
-// calculateConditionalEntropyH_A_B вычисляет условную энтропию H(A|B).
-func calculateConditionalEntropyH_A_B(textA, textB string, alphabet *Alphabet) float64 {
-	normA := normalizeText(textA, alphabet)
-	normB := normalizeText(textB, alphabet)
-	n := len(alphabet.Letters)
-
-	minLen := len(normA)
-	if len(normB) < minLen {
-		minLen = len(normB)
+// Марковская энтропия 1-го порядка: H1 = - sum_a p(a) sum_b p(b|a) log2 p(b|a)
+// где p(b|a) = p(ab)/p(a)
+func markovEntropy1(singleProbs []float64, bigramCounts [][]int) float64 {
+	h := 0.0
+	n := len(singleProbs)
+	for a := 0; a < n; a++ {
+		pa := singleProbs[a]
+		if pa <= 0 {
+			continue
+		}
+		// подсчёт суммы по b
+		sum := 0.0
+		// определим сумму биграмм для a
+		totalForA := 0
+		for b := 0; b < n; b++ {
+			totalForA += bigramCounts[a][b]
+		}
+		if totalForA == 0 {
+			continue
+		}
+		for b := 0; b < n; b++ {
+			pab := float64(bigramCounts[a][b]) / float64(totalForA)
+			if pab > 0 {
+				sum -= pab * math.Log2(pab)
+			}
+		}
+		h += pa * sum
 	}
+	return h
+}
 
-	if minLen == 0 {
-		return 0
+// Сохранение таблицы вероятностей в CSV (одномерная)
+func saveProbCSV(path string, alph Alph, probs []float64) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
 	}
-
-	bCounts := make([]int, n)
-	jointCounts := make([][]int, n)
-	for i := 0; i < n; i++ {
-		jointCounts[i] = make([]int, n)
+	defer f.Close()
+	w := csv.NewWriter(f)
+	defer w.Flush()
+	// заголовок
+	if err := w.Write([]string{"symbol", "index(1..)", "probability"}); err != nil {
+		return err
 	}
+	for i, r := range alph.Letters {
+		if err := w.Write([]string{string(r), fmt.Sprintf("%d", i+1), fmt.Sprintf("%.10f", probs[i])}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	runesA := []rune(normA)
-	runesB := []rune(normB)
+// Сохранение матрицы вероятностей в CSV (bigrams/joint). Строки = символы a, столбцы = символы b
+func saveMatrixCSV(path string, rowAlph Alph, colAlph Alph, mat [][]float64) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := csv.NewWriter(f)
+	defer w.Flush()
 
-	// КОРРЕКТНЫЙ ЦИКЛ: используется `i < minLen`
+	// заголовок: пустая ячейка + символы столбцов
+	header := make([]string, len(colAlph.Letters)+1)
+	header[0] = ""
+	for j, c := range colAlph.Letters {
+		header[j+1] = string(c)
+	}
+	if err := w.Write(header); err != nil {
+		return err
+	}
+	for i, r := range rowAlph.Letters {
+		row := make([]string, len(colAlph.Letters)+1)
+		row[0] = string(r)
+		for j := 0; j < len(colAlph.Letters); j++ {
+			row[j+1] = fmt.Sprintf("%.12f", mat[i][j])
+		}
+		if err := w.Write(row); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Совместное распределение для двух текстов (выравниваем по позициям)
+func jointDistributionAligned(textA string, alphA Alph, textB string, alphB Alph) (joint [][]int, total int) {
+	nA := len(alphA.Letters)
+	nB := len(alphB.Letters)
+	joint = make([][]int, nA)
+	for i := 0; i < nA; i++ {
+		joint[i] = make([]int, nB)
+	}
+	// Проходим по обоим текстам голова-к-голове
+	runesA := []rune(textA)
+	runesB := []rune(textB)
+	minLen := len(runesA)
+	if len(runesB) < minLen {
+		minLen = len(runesB)
+	}
 	for i := 0; i < minLen; i++ {
-		idxA, okA := alphabet.Map[runesA[i]]
-		idxB, okB := alphabet.Map[runesB[i]]
-		if okA && okB {
-			jointCounts[idxA][idxB]++
-			bCounts[idxB]++
+		ra := unicode.ToLower(runesA[i])
+		rb := unicode.ToLower(runesB[i])
+		// пропускаем 'ё'
+		if ra == 'ё' || rb == 'ё' {
+			continue
+		}
+		ia, oka := alphA.Index[ra]
+		ib, okb := alphB.Index[rb]
+		if oka && okb {
+			joint[ia][ib]++
+			total++
 		}
 	}
-
-	var entropy float64
-	for j := 0; j < n; j++ {
-		if bCounts[j] > 0 {
-			probB := float64(bCounts[j]) / float64(minLen)
-			var innerSum float64
-			for i := 0; i < n; i++ {
-				if jointCounts[i][j] > 0 {
-					condProb := float64(jointCounts[i][j]) / float64(bCounts[j])
-					innerSum -= condProb * math.Log2(condProb)
-				}
-			}
-			entropy += probB * innerSum
-		}
-	}
-
-	return entropy
+	return
 }
 
-// calculateJointEntropyH_A_B вычисляет совместную энтропию H(A,B).
-func calculateJointEntropyH_A_B(textA, textB string, alphabet *Alphabet) float64 {
-	normA := normalizeText(textA, alphabet)
-	normB := normalizeText(textB, alphabet)
-	n := len(alphabet.Letters)
-
-	minLen := len(normA)
-	if len(normB) < minLen {
-		minLen = len(normB)
+func printCountsAndProbs(path string, alph Alph, counts []int, bigrams [][]int, total int) {
+	fmt.Printf("=== Анализ для %s (файл: %s) ===\n", alph.Name, filepath.Base(path))
+	fmt.Printf("Общее число символов (в алфавите %d): %d\n", len(alph.Letters), total)
+	fmt.Println("Счётчики по символам:")
+	for i, c := range counts {
+		fmt.Printf("%2d) %s : %d\n", i+1, string(alph.Letters[i]), c)
+	}
+	probs := toProbabilitiesInt(counts, total)
+	fmt.Println("\nВероятности (p):")
+	for i, p := range probs {
+		fmt.Printf("%2d) %s : %.8f\n", i+1, string(alph.Letters[i]), p)
 	}
 
-	fmt.Println(minLen)
+	asciiHistogram(alph, counts, total)
 
-	if minLen == 0 {
-		return 0
-	}
-
-	jointCounts := make([][]int, n)
-	for i := 0; i < n; i++ {
-		jointCounts[i] = make([]int, n)
-	}
-
-	runesA := []rune(normA)
-	runesB := []rune(normB)
-
-	// КОРРЕКТНЫЙ ЦИКЛ: используется `i < minLen`
-	for i := 0; i < minLen; i++ {
-		idxA, okA := alphabet.Map[runesA[i]]
-		idxB, okB := alphabet.Map[runesB[i]]
-		if okA && okB {
-			jointCounts[idxA][idxB]++
-		}
-	}
-
-	var entropy float64
-	for i := 0; i < n; i++ {
-		for j := 0; j < n; j++ {
-			if jointCounts[i][j] > 0 {
-				p := float64(jointCounts[i][j]) / float64(minLen)
-				entropy -= p * math.Log2(p)
+	// биграммы: выведем суммарно по a -> суммарно
+	fmt.Println("\nБиграммы (частично, только ненулевые):")
+	for i := 0; i < len(alph.Letters); i++ {
+		for j := 0; j < len(alph.Letters); j++ {
+			if bigrams[i][j] > 0 {
+				fmt.Printf("%s%s : %d\n", string(alph.Letters[i]), string(alph.Letters[j]), bigrams[i][j])
 			}
 		}
 	}
-
-	return entropy
 }
 
-// printResults выводит результаты анализа в консоль.
-func printResults(res *AnalysisResult) {
-	fmt.Printf("--- Результаты анализа для текста: %s ---\n", res.TextName)
-	fmt.Printf("Алфавит: %s (%d символов)\n", res.Alphabet.Name, len(res.Alphabet.Letters))
-	fmt.Printf("Всего символов (после нормализации): %d\n", res.TotalChars)
-	fmt.Printf("Всего биграмм: %d\n\n", res.TotalBigrams)
+func asciiHistogram(alph Alph, counts []int, total int) {
+    fmt.Println("\nГистограмма:")
 
-	fmt.Println("Гистограмма и вероятности одиночных символов:")
-	type charStat struct {
-		r     rune
-		count int
-		prob  float64
-	}
-	var stats []charStat
-	for i, r := range res.Alphabet.Letters {
-		stats = append(stats, charStat{r, res.CharCounts[i], res.CharProbabilities[i]})
-	}
-	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].count > stats[j].count
-	})
+    if total == 0 {
+        fmt.Println("(нет данных)")
+        return
+    }
 
-	maxCount := 0
-	if len(stats) > 0 && stats[0].count > 0 {
-		maxCount = stats[0].count
-	}
+    maxCount := 0
+    for _, c := range counts {
+        if c > maxCount {
+            maxCount = c
+        }
+    }
+    if maxCount == 0 {
+        fmt.Println("(все нули)")
+        return
+    }
 
-	for _, stat := range stats {
-		if stat.count > 0 {
-			bar := ""
-			if maxCount > 0 {
-				barLength := int(float64(stat.count) / float64(maxCount) * 50.0)
-				bar = strings.Repeat("█", barLength)
-			}
-			fmt.Printf("'%c': %5d (P=%.4f) | %s\n", stat.r, stat.count, stat.prob, bar)
-		}
-	}
-	fmt.Println("\n(Таблицы вероятностей биграмм и условных вероятностей опущены для краткости вывода)")
+    // ширина столбика в символах
+    const barMax = 40
 
-	fmt.Println("\nЧисленные значения энтропии:")
-	fmt.Printf("  - Энтропия источника H(A)                  = %.4f\n", res.EntropyH_A)
-	fmt.Printf("  - Марковская энтропия 1-го порядка H(A|A) = %.4f\n", res.MarkovEntropyH_A_A)
+    for i, c := range counts {
+        p := float64(c) / float64(maxCount)
+        barLen := int(p * barMax)
+
+        bar := strings.Repeat("█", barLen)
+        fmt.Printf("%s | %-*s (%d)\n", string(alph.Letters[i]), barMax, bar, c)
+    }
 }
 
+// main: CLI
 func main() {
-	// --- Анализ русского текста A ---
-	russianTextABytes, err := os.ReadFile("./cmd/russian_text.txt")
-	if err != nil {
-		log.Fatalf("Ошибка чтения файла russian_text.txt: %v", err)
-	}
-	russianTextA := string(russianTextABytes)
-	rusResultA := analyzeText(russianTextA, "./cmd/russian_text.txt", RussianAlphabet)
-	printResults(rusResultA)
-
-	// --- Анализ латинского текста ---
-	fmt.Printf("\n=========================================================\n")
-	latinTextBytes, err := os.ReadFile("./cmd/latin_text.txt")
-	if err != nil {
-		log.Fatalf("Ошибка чтения файла latin_text.txt: %v", err)
-	}
-	latinText := string(latinTextBytes)
-	latResult := analyzeText(latinText, "./cmd/latin_text.txt", LatinAlphabet)
-	printResults(latResult)
-
-	// --- Совместный анализ двух русских текстов ---
-	fmt.Printf("\n=========================================================\n")
-	russianTextBBytes, err := os.ReadFile("./cmd/russian_text_B.txt")
-	if err != nil {
-		// Программа завершится, если второго файла нет, но не упадет.
-		log.Printf("Файл 'russian_text_B.txt' не найден, совместный анализ пропущен: %v", err)
+	if len(os.Args) < 2 {
+		fmt.Println("Использование: go run freq_analysis.go fileA.txt [fileB.txt]")
 		return
 	}
-	russianTextB := string(russianTextBBytes)
+	// Инициализация алфавитов
+	rus := newAlph("Russian(32)", russianAlphabet)
+	lat := newAlph("Latin(26)", latinAlphabet)
 
-	fmt.Printf("--- Совместный анализ для двух русских текстов ---\n")
-	fmt.Printf("  Текст A: %s\n", rusResultA.TextName)
-	fmt.Printf("  Текст B: %s\n", "./cmd/russian_text_B.txt")
+	pathA := os.Args[1]
+	textA, err := readFile(pathA)
+	if err != nil {
+		log.Fatalf("Ошибка чтения %s: %v", pathA, err)
+	}
 
-	// Условная энтропия H(A|B)
-	entropyH_A_B := calculateConditionalEntropyH_A_B(russianTextA, russianTextB, RussianAlphabet)
-	fmt.Printf("  - Условная энтропия H(A|B) = %.4f\n", entropyH_A_B)
+	// Выберем алфавит для файла A: если в тексте есть кириллические буквы -> рус, иначе латинский.
+	useRusA := false
+	for _, r := range textA {
+		if unicode.Is(unicode.Cyrillic, r) {
+			useRusA = true
+			break
+		}
+	}
+	var alphA Alph
+	if useRusA {
+		alphA = rus
+	} else {
+		alphA = lat
+	}
+	countsA, bigramsA, totalA := analyzeTextForAlphabet(textA, alphA)
+	probsA := toProbabilitiesInt(countsA, totalA)
+	bigramProbsA := toProbMatrixInt(bigramsA, 0) // позднее нормализуем по каждой строке, если нужно
 
-	// Совместная энтропия H(A,B)
-	entropyH_AB := calculateJointEntropyH_A_B(russianTextA, russianTextB, RussianAlphabet)
-	fmt.Printf("  - Совместная энтропия H(A,B) = %.4f\n", entropyH_AB)
+	// Для биграмм используем нормализацию на общее число биграмм (sum over all pairs)
+	totalBigramsA := 0
+	for i := 0; i < len(bigramsA); i++ {
+		for j := 0; j < len(bigramsA); j++ {
+			totalBigramsA += bigramsA[i][j]
+		}
+	}
+	bigramProbsA = toProbMatrixInt(bigramsA, totalBigramsA)
+
+	printCountsAndProbs(pathA, alphA, countsA, bigramsA, totalA)
+
+	// Вычисления энтропий для A
+	H_A := entropyFromProbs(probsA)
+	H1_A := markovEntropy1(probsA, bigramsA)
+	fmt.Printf("\nH(A) = %.12f бит\n", H_A)
+	fmt.Printf("Марковская энтропия 1-го порядка H1(A) = %.12f бит\n", H1_A)
+
+	// Сохраняем таблицы в CSV
+	_ = os.Mkdir("out", 0755)
+	if err := saveProbCSV(filepath.Join("out", filepath.Base(pathA)+".probs.csv"), alphA, probsA); err != nil {
+		log.Printf("Ошибка сохранения probs CSV: %v", err)
+	}
+	if err := saveMatrixCSV(filepath.Join("out", filepath.Base(pathA)+".bigrams.csv"), alphA, alphA, bigramProbsA); err != nil {
+		log.Printf("Ошибка сохранения bigrams CSV: %v", err)
+	}
+
+	// Если есть второй файл — делаем сравнительный анализ
+	if len(os.Args) >= 3 {
+		pathB := os.Args[2]
+		textB, err := readFile(pathB)
+		if err != nil {
+			log.Fatalf("Ошибка чтения %s: %v", pathB, err)
+		}
+		useRusB := false
+		for _, r := range textB {
+			if unicode.Is(unicode.Cyrillic, r) {
+				useRusB = true
+				break
+			}
+		}
+		var alphB Alph
+		if useRusB {
+			alphB = rus
+		} else {
+			alphB = lat
+		}
+		countsB, bigramsB, totalB := analyzeTextForAlphabet(textB, alphB)
+		probsB := toProbabilitiesInt(countsB, totalB)
+		// биграммы для B
+		totalBigramsB := 0
+		for i := 0; i < len(bigramsB); i++ {
+			for j := 0; j < len(bigramsB); j++ {
+				totalBigramsB += bigramsB[i][j]
+			}
+		}
+		bigramProbsB := toProbMatrixInt(bigramsB, totalBigramsB)
+		printCountsAndProbs(pathB, alphB, countsB, bigramsB, totalB)
+
+		H_B := entropyFromProbs(probsB)
+		H1_B := markovEntropy1(probsB, bigramsB)
+		fmt.Printf("\nH(B) = %.12f бит\n", H_B)
+		fmt.Printf("Марковская энтропия 1-го порядка H1(B) = %.12f бит\n", H1_B)
+
+		// Совместное распределение по выровненным позициям
+		jointCounts, totalJoint := jointDistributionAligned(textA, alphA, textB, alphB)
+		jointProbs := make([][]float64, len(jointCounts))
+		for i := range jointCounts {
+			jointProbs[i] = make([]float64, len(jointCounts[i]))
+			for j := range jointCounts[i] {
+				if totalJoint > 0 {
+					jointProbs[i][j] = float64(jointCounts[i][j]) / float64(totalJoint)
+				} else {
+					jointProbs[i][j] = 0.0
+				}
+			}
+		}
+
+		// Энтропии совместные и условные
+		H_AB := entropyFromJoint(jointProbs)
+		// Условная H(A|B) = H(A,B) - H(B) (где H(B) считаем по распределению символов B в позициях, где был учтён joint)
+		// Сначала получим p_B_in_joint (распределение B только по позициям, участвовавшим в joint)
+		pB_in_joint := make([]float64, len(alphB.Letters))
+		for i := 0; i < len(jointCounts); i++ {
+			for j := 0; j < len(jointCounts[i]); j++ {
+				pB_in_joint[j] += float64(jointCounts[i][j])
+			}
+		}
+		for j := 0; j < len(pB_in_joint); j++ {
+			if totalJoint > 0 {
+				pB_in_joint[j] = pB_in_joint[j] / float64(totalJoint)
+			}
+		}
+		H_B_givenJoint := entropyFromProbs(pB_in_joint)
+		// Теперь условная H(A|B) = H(A,B) - H(B|joint)
+		H_A_given_B := H_AB - H_B_givenJoint
+
+		// Аналогично H(B|A) = H(A,B) - H(A|joint)
+		pA_in_joint := make([]float64, len(alphA.Letters))
+		for i := 0; i < len(jointCounts); i++ {
+			for j := 0; j < len(jointCounts[i]); j++ {
+				pA_in_joint[i] += float64(jointCounts[i][j])
+			}
+		}
+		for i := 0; i < len(pA_in_joint); i++ {
+			if totalJoint > 0 {
+				pA_in_joint[i] = pA_in_joint[i] / float64(totalJoint)
+			}
+		}
+		H_A_givenJoint := entropyFromProbs(pA_in_joint)
+		H_B_given_A := H_AB - H_A_givenJoint
+
+		fmt.Printf("\nСовместная энтропия H(A,B) = %.12f бит (по выровненным позициям, учтено пар: %d)\n", H_AB, totalJoint)
+		fmt.Printf("Условная энтропия H(A|B) = %.12f бит\n", H_A_given_B)
+		fmt.Printf("Условная энтропия H(B|A) = %.12f бит\n", H_B_given_A)
+
+		// Сохранение joint в CSV
+		if err := saveMatrixCSV(filepath.Join("out", filepath.Base(pathA)+"__"+filepath.Base(pathB)+".joint.csv"), alphA, alphB, jointProbs); err != nil {
+			log.Printf("Ошибка сохранения joint CSV: %v", err)
+		}
+
+		// Также сохраняем одиночные вероятности для B
+		if err := saveProbCSV(filepath.Join("out", filepath.Base(pathB)+".probs.csv"), alphB, probsB); err != nil {
+			log.Printf("Ошибка сохранения probs CSV для B: %v", err)
+		}
+		if err := saveMatrixCSV(filepath.Join("out", filepath.Base(pathB)+".bigrams.csv"), alphB, alphB, bigramProbsB); err != nil {
+			log.Printf("Ошибка сохранения bigrams CSV для B: %v", err)
+		}
+	}
+
+	fmt.Println("\nГотово. CSV-таблицы (если созданы) в папке ./out")
 }
