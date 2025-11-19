@@ -2,37 +2,56 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
+func merge(ch1, ch2 chan int) chan int {
+	resChan := make(chan int)
+	wg := &sync.WaitGroup{}
+
+	wg.Add(2)
+
+	go func() {
+		for v := range ch1 {
+			resChan <- v
+		}
+		wg.Done()
+	}()
+	
+	go func() {
+		for v := range ch2 {
+			resChan <- v
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		wg.Wait()
+		close(resChan)
+	}()
+	
+	return resChan
+}
 
 func main() {
-	// done := make(chan struct{})
+	ch1 := make(chan int)
+	ch2 := make(chan int)
 
-	// for i := 0; i < 5; i++ {
-    // 	go func(i int) {
-    //     	fmt.Println("work", i)
-    //     	done <- struct{}{}
-    // 	}(i)
+	go func() {
+		for i := 1; i < 7; i+=2 {
+			ch1 <- i
+		}
+		close(ch1)
+	}()
 
-    // <-done // ждём завершения горутины i
-	// }
+	go func() {
+		for i := 2; i < 7; i+=2 {
+			ch2 <- i
+		}
+		close(ch2)
+	}()
 
-	n := 5
-	signals := make([]chan struct{}, n)
-
-	for i := 0; i < n; i++ {
-		signals[i] = make(chan struct{})
+	for v := range merge(ch1, ch2) {
+		fmt.Println(v)
 	}
-
-	for i := 0; i < n; i++ {
-		go func(i int) {
-			if i > 0 {
-				<-signals[i-1]
-			}
-			fmt.Println("work", i)
-			close(signals[i])
-		}(i)
-	}
-
-	<-signals[n-1]
 }
