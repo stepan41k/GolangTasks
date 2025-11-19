@@ -5,53 +5,44 @@ import (
 	"sync"
 )
 
-func merge(ch1, ch2 chan int) chan int {
-	resChan := make(chan int)
-	wg := &sync.WaitGroup{}
+var (
+	countJobs = 5
+	countWorkers = 3
+)
 
-	wg.Add(2)
-
-	go func() {
-		for v := range ch1 {
-			resChan <- v
-		}
-		wg.Done()
-	}()
-	
-	go func() {
-		for v := range ch2 {
-			resChan <- v
-		}
-		wg.Done()
-	}()
-
-	go func() {
-		wg.Wait()
-		close(resChan)
-	}()
-	
-	return resChan
+func merge(jobs chan int, result chan int) {
+	for v := range jobs {
+		result <- v * v
+	}
 }
 
 func main() {
-	ch1 := make(chan int)
-	ch2 := make(chan int)
+	jobsChan := make(chan int)
+	resultChan := make(chan int)
 
 	go func() {
-		for i := 1; i < 7; i+=2 {
-			ch1 <- i
+		for i := 1; i <= countJobs; i++ {
+			jobsChan <- i
 		}
-		close(ch1)
+
+		close(jobsChan)
 	}()
+
+	wg := &sync.WaitGroup{}
+	wg.Add(countWorkers)
+	for i := 0; i < countWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			merge(jobsChan, resultChan)
+		}()
+	}
 
 	go func() {
-		for i := 2; i < 7; i+=2 {
-			ch2 <- i
-		}
-		close(ch2)
+		wg.Wait()
+		close(resultChan)
 	}()
 
-	for v := range merge(ch1, ch2) {
+	for v := range resultChan {
 		fmt.Println(v)
 	}
 }
