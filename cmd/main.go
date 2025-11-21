@@ -2,37 +2,47 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
+var (
+	countJobs = 5
+	countWorkers = 3
+)
+
+func merge(jobs chan int, result chan int) {
+	for v := range jobs {
+		result <- v * v
+	}
+}
 
 func main() {
-	// done := make(chan struct{})
+	jobsChan := make(chan int)
+	resultChan := make(chan int)
 
-	// for i := 0; i < 5; i++ {
-    // 	go func(i int) {
-    //     	fmt.Println("work", i)
-    //     	done <- struct{}{}
-    // 	}(i)
+	go func() {
+		for i := 1; i <= countJobs; i++ {
+			jobsChan <- i
+		}
 
-    // <-done // ждём завершения горутины i
-	// }
+		close(jobsChan)
+	}()
 
-	n := 5
-	signals := make([]chan struct{}, n)
-
-	for i := 0; i < n; i++ {
-		signals[i] = make(chan struct{})
+	wg := &sync.WaitGroup{}
+	wg.Add(countWorkers)
+	for i := 0; i < countWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			merge(jobsChan, resultChan)
+		}()
 	}
 
-	for i := 0; i < n; i++ {
-		go func(i int) {
-			if i > 0 {
-				<-signals[i-1]
-			}
-			fmt.Println("work", i)
-			close(signals[i])
-		}(i)
-	}
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
 
-	<-signals[n-1]
+	for v := range resultChan {
+		fmt.Println(v)
+	}
 }
