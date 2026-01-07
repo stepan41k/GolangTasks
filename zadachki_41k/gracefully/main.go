@@ -17,7 +17,5 @@ func main() {
 
 	time.Sleep(2 * time.Second)
 
-	
-
 	fmt.Println("gracefully stopped", signal.String())
 }
