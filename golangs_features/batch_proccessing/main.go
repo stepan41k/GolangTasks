@@ -15,9 +15,9 @@ var (
 )
 
 func proccessBatch(wg *sync.WaitGroup, batch []int) {
-	// for i := 0; i < len(batch); i++ {
-	// 	wg.Done()
-	// }
+	for i := 0; i < len(batch); i++ {
+		wg.Done()
+	}
 	
 	atomic.AddInt64(&count, int64(len(batch)))
 	fmt.Printf("Обрабатывается батч размером %d\n",  len(batch))
