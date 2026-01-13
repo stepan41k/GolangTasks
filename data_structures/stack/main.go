@@ -15,7 +15,6 @@ type Stack[T any] struct {
 	size int
 }
 
-
 func NewStack[T any]() *Stack[T] {
 	return &Stack[T]{}
 }
