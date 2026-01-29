@@ -2,17 +2,17 @@ package main
 
 import "fmt"
 
-type Node struct {
-	Val      int
-	nextNode *Node
+type Node[T comparable] struct {
+	Val      T
+	nextNode *Node[T]
 }
 
-type LinkedList struct {
-	head *Node
+type LinkedList[T comparable] struct {
+	head *Node[T]
 }
 
-func (l *LinkedList) Insert(val int) {
-	newNode := &Node{Val: val, nextNode: nil}
+func (l *LinkedList[T]) Insert(val T) {
+	newNode := &Node[T]{Val: val, nextNode: nil}
 
 	if l.head == nil {
 		l.head = newNode
@@ -30,7 +30,7 @@ func (l *LinkedList) Insert(val int) {
 }
 
 //Delete all occurrences of a number
-func (l *LinkedList) Delete(val int) {
+func (l *LinkedList[T]) Delete(val T) {
 	for l.head != nil && l.head.Val == val {
         l.head = l.head.nextNode
     }
@@ -50,7 +50,7 @@ func (l *LinkedList) Delete(val int) {
 	}
 }
 
-func (l *LinkedList) Print() {
+func (l *LinkedList[T]) Print() {
 	if l.head == nil {
 		return
 	}
@@ -64,7 +64,7 @@ func (l *LinkedList) Print() {
 }
 
 func main() {
-	newList := &LinkedList{}
+	newList := &LinkedList[int]{}
 
 	newList.Insert(10)
 	newList.Insert(20)
