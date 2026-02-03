@@ -1,137 +1,136 @@
 package main
 
-import "fmt"
+import (
+	"cmp"
+	"fmt"
+)
 
-type Node struct {
-	Value int
-	Left *Node
-	Right *Node
+type Node[T cmp.Ordered] struct {
+	leaf     bool
+	keys     []T
+	children []*Node[T]
 }
 
-type Tree struct {
-	Root *Node
+type BTree[T cmp.Ordered] struct {
+	root *Node[T]
+	t    int
 }
 
-func (n *Node) PrintTree() {
-	if n == nil {
+func NewBTree[T cmp.Ordered](t int) *BTree[T] {
+	return &BTree[T]{
+		t: t,
+	}
+}
+
+func (t *BTree[T]) Search(key T) (*Node[T], int) {
+	if t.root == nil {
+		return nil, -1
+	}
+	return t.root.search(key)
+}
+
+func (n *Node[T]) search(key T) (*Node[T], int) {
+	i := 0
+	for i < len(n.keys) && key > n.keys[i] {
+		i++
+	}
+
+	if i < len(n.keys) && key == n.keys[i] {
+		return n, i
+	}
+
+	if n.leaf {
+		return nil, -1
+	}
+
+	return n.children[i].search(key)
+}
+
+func (t *BTree[T]) Insert(key T) {
+	if t.root == nil {
+		t.root = &Node[T]{
+			leaf: true,
+			keys: []T{key},
+		}
 		return
 	}
 
-	n.Left.PrintTree()
-	fmt.Printf("%d -> ", n.Value)
-	n.Right.PrintTree()
+	if len(t.root.keys) == 2*t.t-1 {
+		newRoot := &Node[T]{
+			leaf: false,
+		}
+
+		newRoot.children = append(newRoot.children, t.root)
+
+		t.splitChild(newRoot, 0)
+		t.root = newRoot
+	}
+
+	t.insertNonFull(t.root, key)
 }
 
-func (t *Tree) Insert(val int) {
-	if t.Root == nil {
-		t.Root = &Node{Value: val}
+func (t *BTree[T]) splitChild(parent *Node[T], i int) {
+	child := parent.children[i]
+	newNode := &Node[T]{leaf: child.leaf}
+
+	midIndex := t.t - 1
+	midKey := child.keys[midIndex]
+
+	newNode.keys = append(newNode.keys, child.keys[midIndex+1:]...)
+	child.keys = child.keys[:midIndex]
+
+	if !child.leaf {
+		newNode.children = append(newNode.children, child.children[midIndex+1:]...)
+		child.children = child.children[:midIndex+1]
+	}
+
+	parent.children = append(parent.children, nil)
+	copy(parent.children[i+2:], parent.children[i+1:])
+	parent.children[i+1] = newNode
+
+	parent.keys = append(parent.keys, midKey)
+	copy(parent.keys[i+1:], parent.keys[i:])
+	parent.keys[i] = midKey
+}
+
+func (t *BTree[T]) insertNonFull(n *Node[T], key T) {
+	i := len(n.keys) - 1
+
+	if n.leaf {
+		n.keys = append(n.keys, key)
+		for i >= 0 && key < n.keys[i] {
+			n.keys[i+1] = n.keys[i]
+			i--
+		}
+		n.keys[i+1] = key
 	} else {
-		t.Root.IterativeInsert(val)
-	}
-}
-
-func (n *Node) RecursiveInsert(val int) {
-	newNode := &Node{
-		Value: val,
-	}
-
-	if n == nil {
-		n = newNode
-		return
-	}
-
-	if val < n.Value {
-		if n.Left == nil {
-			n.Left = newNode
-		} else {
-			n.Left.RecursiveInsert(val)
+		for i >= 0 && key < n.keys[i] {
+			i--
 		}
-	} else if val > n.Value {
-		if n.Right == nil {
-			n.Right = newNode
-		} else {
-			n.Right.RecursiveInsert(val)
-		}
-	}
-}
+		i++
 
-func (n *Node) IterativeInsert(val int) {
-	curr := n
-
-	for {
-		if val < curr.Value {
-			if curr.Left == nil {
-				curr.Left = &Node{Value: val}
-				break
+		if len(n.children[i].keys) == 2 * t.t-1 {
+			t.splitChild(n, i)
+			if key > n.keys[i] {
+				i++
 			}
-			curr = curr.Left
-		} else if val > curr.Value {
-			if curr.Right == nil {
-				curr.Right = &Node{Value: val}
-				break
-			}
-			curr = curr.Right
-		} else {
-			break
 		}
+		t.insertNonFull(n.children[i], key)
 	}
-}
-
-func (n *Node) findMin() *Node {
-	current := n
-
-	for current.Left != nil {
-		current = current.Left
-	}
-
-	return current
-}
-
-func Delete(root *Node, val int) *Node{
-	if root == nil {
-		return nil
-	}
-
-	if val < root.Value {
-		root.Left = Delete(root.Left, val)
-	} else if val > root.Value {
-		root.Right = Delete(root.Right, val)
-	} else {
-		if root.Left == nil {
-			return root.Right
-		} else if root.Right == nil {
-			return root.Left
-		}
-
-		minRight := root.Right.findMin()
-		
-		root.Value = minRight.Value
-
-		root.Right = Delete(root.Right, minRight.Value)
-	}
-
-	return root
-}
-
-
-func NewTree() *Tree {
-	return &Tree{}
 }
 
 func main() {
-	newTree := NewTree()
+	btree := NewBTree[int](3)
 
-	newTree.Insert(20)
-	newTree.Insert(10)
-	newTree.Insert(25)
-	
-	newTree.Insert(5)
-	newTree.Insert(0)
+	values := []int{10, 20, 5, 6, 12, 30, 7, 17}
+	for _, v := range values {
+		btree.Insert(v)
+	}
 
-	newTree.Root.PrintTree()
-	Delete(newTree.Root, 10)
-	fmt.Println("")
-
-	newTree.Root.PrintTree()
-
+	node, idx := btree.Search(6)
+	if node != nil {
+		fmt.Printf("Found: %d in node with keys %v (index %d)\n", node.keys[idx], node.keys, idx)
+	} else {
+		fmt.Println("Not found")
+	}
 }
