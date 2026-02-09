@@ -404,4 +404,101 @@ func main() {
     makeSlice(10)
 }
 
+//TODO: 24
+package main
+
+import (
+	"sync"
+	"time"
+)
+
+func worker() chan int {
+   ch := make(chan int)
+
+   go func() {
+    	time.Sleep(3 * time.Second)
+    	ch <- 42
+   }()
+
+   return ch
+}
+
+func main() {
+	timeStart := time.Now()
+	wg := sync.WaitGroup{}
+
+	wg.Add(2)
+	for range 2 {
+		go func() {
+			defer wg.Done()
+			_ = <-worker()
+		}()
+	}
+
+	
+	wg.Wait()
+
+
+   println(int(time.Since(timeStart).Seconds()))
+}
+
+//TODO: 25
+package main
+
+import (
+	"fmt"
+)
+
+type MyError struct {}
+
+func (m MyError) Error() string {
+	return "MyError"
+}
+
+func errorHandler(err error) {
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+}
+
+func main() {
+   var err *MyError
+   errorHandler(err)
+
+   err = &MyError{}
+   errorHandler(err)
+}
+
+
+//TODO: 26
+package main
+
+import (
+	"fmt"
+)
+
+// input: ["a", "bb", "bb", "aa", "a", "a"]
+// output: ["a", "bb"]
+
+func printRepeats(arr []string) {
+	m := map[string]uint8{}
+	out := make([]string, 0, len(arr))
+
+	for _, v := range arr {
+		if val, ok := m[v]; ok && val == 1 {
+			m[v] = 2
+			out = append(out, v)
+		} else {
+			m[v] = 1
+		}
+	}
+
+	fmt.Println(out)
+}
+
+func main () {
+	arr := []string{"a", "bb", "bb", "aa", "a", "a"}
+
+	printRepeats(arr)
+}
 
