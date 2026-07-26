@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Person struct {
     Name string
@@ -18,12 +20,21 @@ func list(names []Person) string {
 	res := ""
 	
 	for i, v := range names {
+		if i == 0 {
+			res += v.Name
+			continue
+		}
+		
 		if i == len(names) - 1 {
-			res += string('&') + v.Name
+			res += " & " + v.Name
 			continue
 		}
 
-		res += string(',') + v.Name
+		if i == len(names) - 2 {
+			 
+		}
+
+		res += ", " + v.Name
 	}
 	
     return res
