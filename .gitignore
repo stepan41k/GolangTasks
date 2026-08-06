@@ -1,7 +1,7 @@
 .vscode
-/cmd/main.go
-/cmd/main.sql
+
+/cmd
+
 data.txt
-/cmd/main.py
 text.txt
 output.txt
