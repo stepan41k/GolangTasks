@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func main() {
+func OneRange() {
 	x := 156
 
 	var runes [11]rune

@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func main() {
+func TwoRanges() {
 	x := 156
 
 	var runes []rune
