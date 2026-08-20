@@ -18,7 +18,7 @@ func main() {
 	p.X()
 	p.Z()
 	T{}.X()
-	T{}.Z()
+	// T{}.Z() // Error
 	(&T{}).X()
 	(&T{}).Z()
 }
