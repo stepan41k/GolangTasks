@@ -13,6 +13,10 @@ type Square struct {
 	side int
 }
 
+type Circle struct {
+	radius int
+}
+
 func (s *Square) Accept(v Visitor) {
 	v.VisitForSquare(s)
 }
