@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"structs"
 	"sync"
 	"time"
 )
@@ -24,7 +22,7 @@ type CacheItem struct {
 
 func NewCache(cleanupInterval time.Duration) *Cache {
 	newCache := &Cache{
-		cache: make(map[string]CacheItem),
+		cache:           make(map[string]CacheItem),
 		cleanupInterval: cleanupInterval,
 	}
 
@@ -39,22 +37,19 @@ func (c *Cache) cleanup() {
 	newTicker := time.NewTicker(c.cleanupInterval)
 	defer newTicker.Stop()
 
-	for {
-		select {
-		case <-newTicker.C:
-			curTime := time.Now()
+	for range newTicker.C {
+		curTime := time.Now()
 
-			c.mu.Lock()
-			defer c.mu.Unlock()
+		c.mu.Lock()
+		defer c.mu.Unlock()
 
-			for key, value := range c.cache {
-				if time.Since(curTime) > c.maxCleanupTime {
-					break
-				}
+		for key, value := range c.cache {
+			if time.Since(curTime) > c.maxCleanupTime {
+				break
+			}
 
-				if time.Since(value.ttl) > 0 {
-					delete(c.cache, key)
-				}
+			if time.Since(value.ttl) > 0 {
+				delete(c.cache, key)
 			}
 		}
 	}
