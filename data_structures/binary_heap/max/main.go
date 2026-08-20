@@ -1,40 +1,103 @@
 package main
 
-import "fmt"
+import (
+	"cmp"
+	"fmt"
+)
 
-type MaxHeap struct {
-	array []int
+type MaxHeap[T cmp.Ordered] struct {
+	data []T
 }
 
-func (h *MaxHeap) Insert(key int) {
-	h.array = append(h.array, key)
-	h.heapifUp(len(h.array) - 1)
+func NewMaxHeap[T cmp.Ordered]() *MaxHeap[T] {
+	return &MaxHeap[T]{data: []T{}}
 }
 
-func (h *MaxHeap) ExtractMap() (int, error) {
-	if len(h.array) == 0 {
-		return 0, fmt.Errorf("heap is emprty")
+func (h *MaxHeap[T]) Push(val T) {
+	h.data = append(h.data, val)
+	h.siftUp(len(h.data) - 1)
+}
+
+func (h *MaxHeap[T]) Pop() (T, bool) {
+	var zero T
+	if len(h.data) == 0 {
+		return zero, false
 	}
 
-	extracted := h.array[0]
-	lastIndex := len(h.array) - 1
+	maxVal := h.data[0]
+	lastIdx := len(h.data) - 1
 
-	h.array[0] = h.array[lastIndex]
-	h.array = h.array[:lastIndex]
+	h.data[0] = h.data[lastIdx]
+	h.data = h.data[:lastIdx]
 
-	h.heapifDown(0)
+	if len(h.data) > 0 {
+		h.siftDown(0)
+	}
 
-	return extracted, nil
+	return maxVal, true
 }
 
-func (h *MaxHeap) heapifUp(index int) {
-	for h.array[parent(index)] < h.array[index] {
-		h.swap(parent(index), index)
-		index = parent(index)
+func (h *MaxHeap[T]) Peek() (T, bool) {
+	var zero T
+	if len(h.data) == 0 {
+		return zero, false
+	}
+	return h.data[0], true
+}
+
+func (h *MaxHeap[T]) siftUp(idx int) {
+	for idx > 0 {
+		parentIdx := (idx - 1) / 2
+		if h.data[idx] > h.data[parentIdx] {
+			h.data[idx], h.data[parentIdx] = h.data[parentIdx], h.data[idx]
+			idx = parentIdx
+		} else {
+			break
+		}
 	}
 }
 
-func (h *MaxHeap) heapifDown(index int) {
-	listIndex := len(h.array) - 1
-	l, r := 
+func (h *MaxHeap[T]) siftDown(idx int) {
+	n := len(h.data)
+
+	for {
+		left := 2*idx + 1
+		right := 2*idx + 2
+		largest := idx
+
+		if left < n && h.data[left] > h.data[largest] {
+			largest = left
+		}
+		if right < n && h.data[right] > h.data[largest] {
+			largest = right
+		}
+
+		if largest != idx {
+			h.data[idx], h.data[largest] = h.data[largest], h.data[idx]
+			idx = largest
+		} else {
+			break
+		}
+	}
+}
+
+func main() {
+	heap := NewMaxHeap[int]()
+
+	numbers := []int{15, 30, 8, 10, 50, 20}
+	for _, num := range numbers {
+		heap.Push(num)
+	}
+
+	fmt.Println("Max elem (Peek):", func() int { v, _ := heap.Peek(); return v }())
+
+	fmt.Println("\nExtract by order (desc order):")
+	for {
+		val, ok := heap.Pop()
+		if !ok {
+			break
+		}
+		fmt.Printf("%d ", val)
+	}
+	// Output: 50 30 20 15 10 8
 }
