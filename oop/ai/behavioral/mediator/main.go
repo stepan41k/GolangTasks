@@ -1,5 +1,9 @@
 package main
 
+type Train struct {
+	Number string
+}
+
 type Mediator interface {
 	CanLand(Train) bool
 	NotifyFree()
