@@ -1,9 +1,45 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 )
+
+type LinearAllocator struct {
+	data []byte
+}
+
+func NewLinearAllocator(capacity int) (LinearAllocator, error) {
+	if capacity <= 0 {
+		return LinearAllocator{}, errors.New("incorrect capacity")
+	}
+
+	return LinearAllocator{
+		data: make([]byte, 0, capacity),
+	}, nil
+}
+
+func (a *LinearAllocator) Allocate(size int) (unsafe.Pointer, error) {
+	previousLength := len(a.data)
+	newLength := previousLength + size
+
+	if newLength > cap(a.data) {
+		// can increase capacity
+		return nil, errors.New("not enough memory")
+	}
+
+	a.data = a.data[:newLength]
+	pointer := unsafe.Pointer(&a.data[previousLength])
+	return pointer, nil
+}
+
+// not supported by this kind of allocator
+// func (a *LinearAllocator) Deallocate(pointer unsafe.Pointer) error {}
+
+func (a *LinearAllocator) Free() {
+	a.data = a.data[:0]
+}
 
 func store[T any](pointer unsafe.Pointer, value T) {
 	*(*T)(pointer) = value
