@@ -3,6 +3,7 @@ module github.com/stepan41k/GolangTasks
 go 1.25.3
 
 require (
+	github.com/mattn/go-sqlite3 v1.14.50
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/sync v0.22.0
 )
