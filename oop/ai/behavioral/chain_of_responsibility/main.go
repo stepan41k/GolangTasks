@@ -2,6 +2,12 @@ package main
 
 import "fmt"
 
+type Patient struct {
+	Name string
+	Age int
+	RegistrationDone bool
+}
+
 type Department interface {
 	Execute(*Patient)
 	SetNext(Department)
