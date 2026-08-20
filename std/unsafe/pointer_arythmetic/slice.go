@@ -5,13 +5,14 @@ import (
 	"unsafe"
 )
 
-func main() {
-	x := []int{1, 2, 3, 4, 5, 6, 7, 8, 10}
-
-	p := unsafe.Pointer(&x[0])
-
-	for i := 0; i < len(x); i++ {
+func SliceArythmetic[T any](s []T) {
+	p := unsafe.Pointer(&s[0])
+	size := unsafe.Sizeof(s[0])
+	
+	for i := 0; i < len(s); i++ {
 		fmt.Println(*(*int)(p))
-		p = unsafe.Add(p, unsafe.Sizeof(x[0]))
+		p = unsafe.Add(p, size)
 	}
+
+	fmt.Println()
 }

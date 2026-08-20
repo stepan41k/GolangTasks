@@ -1,4 +1,3 @@
-// string
 package main
 
 import (
@@ -6,12 +5,10 @@ import (
 	"unsafe"
 )
 
-func main() {
-	x := "Hello dear friemd"
+func StringArythmetic(s string) {
+	ptr := unsafe.Pointer(unsafe.StringData(s))
 
-	ptr := unsafe.Pointer(unsafe.StringData(x))
-
-	for i := 0; i < len(x); i++ {
+	for i := 0; i < len(s); i++ {
 		ptrVal := *(*byte)(ptr)
 		fmt.Println(string(ptrVal))
 		ptr = unsafe.Add(ptr, 1)
